@@ -1,0 +1,23 @@
+```
+Gain a clear broad scope of the project 
+
+I have been given a technical assessment task and I want to work through it properly — architecture first, then implementation.
+I have attached the task brief and a file containing 212 dataset identifiers I need to work with.
+In summary, I need to build:
+
+An ETL pipeline to extract metadata from a scientific data catalogue (CEH) — metadata comes in ISO 19115 XML, JSON, JSON-LD, and RDF formats
+
+A semantic search capability using vector embeddings
+A web frontend for searching and discovering datasets
+
+Before jumping into code, can you help me think through the high-level system architecture? What are the major components, how should they interact, and what are the key boundaries I should establish just to have clear broad picture and understanding
+
+
+```
+That makes sense. To help narrow down further, For the tech stack, I'm leaning towards Python for the backend since it has strong libraries for parsing XML and JSON, plus good support for ML/embeddings.
+
+For the API layer, I'm considering FastAPI. For the frontend, probably Vue.
+
+What do you think of this direction? And for the databases — I was thinking SQLite for the structured metadata since this is a demonstration project with only 212 datasets. But I'm less sure about the vector database. What would you recommend for something lightweight that doesn't require spinning up separate infrastructure? I think the introduction of celery + redis and any pub sub of some sort at this point would be an overkill ?
+
+
