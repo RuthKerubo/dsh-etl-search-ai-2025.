@@ -12,3 +12,6 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# Virtual environments
+venv/
