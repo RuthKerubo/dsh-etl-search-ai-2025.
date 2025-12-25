@@ -15,3 +15,4 @@ venv/
 
 # Virtual environments
 venv/
+create_issues.sh
