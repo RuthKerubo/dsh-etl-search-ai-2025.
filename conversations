@@ -20,4 +20,8 @@ For the API layer, I'm considering FastAPI. For the frontend, probably Vue.
 
 What do you think of this direction? And for the databases — I was thinking SQLite for the structured metadata since this is a demonstration project with only 212 datasets. But I'm less sure about the vector database. What would you recommend for something lightweight that doesn't require spinning up separate infrastructure? I think the introduction of celery + redis and any pub sub of some sort at this point would be an overkill ?
 
+```
+
+
+
 

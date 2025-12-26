@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  etl:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+      - ../etl:/app/etl:ro
+    command: python -m etl.main
+    profiles: ["etl"]
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+      - ../api:/app/api:ro
+    ports:
+      - "8000:8000"
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
