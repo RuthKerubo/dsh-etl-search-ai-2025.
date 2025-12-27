@@ -15,7 +15,9 @@ pydantic-settings>=2.0.0
 # -----------------------------------------------------------------------------
 # HTTP & Async
 # -----------------------------------------------------------------------------
-httpx>=0.25.0
+aiohttp>=3.9.0      # Async HTTP client (used in http.py)
+aiofiles>=23.0.0    # Async file I/O (used in local.py, cached.py)
+httpx>=0.25.0       # Alternative HTTP client, useful for sync contexts
 
 # -----------------------------------------------------------------------------
 # XML/JSON Parsing
