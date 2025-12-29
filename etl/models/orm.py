@@ -450,7 +450,59 @@ class EmbeddingRecord(Base):
     
     def __repr__(self) -> str:
         return f"<EmbeddingRecord(source={self.source_type}:{self.source_id}, type='{self.embedding_type}')>"
+    
+class User(Base):
+    """User account."""
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    display_name = Column(String(255))
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime)
+    preferences = Column(Text)  # JSON string
+    
+    # Relationships
+    search_history = relationship("SearchHistory", back_populates="user", cascade="all, delete-orphan")
+    favourites = relationship("UserFavourite", back_populates="user", cascade="all, delete-orphan")
 
+
+class SearchHistory(Base):
+    """Search history record."""
+    __tablename__ = "search_history"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)  # Nullable for anonymous
+    query_text = Column(String(500), nullable=False)
+    search_type = Column(String(50), default="semantic")
+    result_count = Column(Integer, default=0)
+    searched_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    duration_ms = Column(Integer)
+    
+    # Relationships
+    user = relationship("User", back_populates="search_history")
+
+
+class UserFavourite(Base):
+    """User's favourite datasets."""
+    __tablename__ = "user_favourites"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    dataset_id = Column(Integer, ForeignKey("datasets.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="favourites")
+    dataset = relationship("Dataset")
+    
+    __table_args__ = (
+        # Unique constraint: user can only favourite a dataset once
+        {"sqlite_autoincrement": True},
+    )
 
 # =============================================================================
 # Database Utilities

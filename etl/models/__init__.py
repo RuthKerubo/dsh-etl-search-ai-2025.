@@ -60,6 +60,14 @@ from .converters import (
     update_dataset_from_domain,
 )
 
+from .user import (
+    User,
+    UserCreate,
+    UserUpdate,
+    UserPreferences,
+    SearchHistoryEntry,
+)
+
 __all__ = [
     # Domain Enums
     "AccessType",
@@ -97,4 +105,10 @@ __all__ = [
     "domain_to_orm",
     "orm_to_domain",
     "update_dataset_from_domain",
+    # ... Users ...
+    "User",
+    "UserCreate", 
+    "UserUpdate",
+    "UserPreferences",
+    "SearchHistoryEntry",
 ]
