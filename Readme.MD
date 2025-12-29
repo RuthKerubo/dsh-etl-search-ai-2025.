@@ -323,10 +323,6 @@ ruff check etl/
 | HTTP client | aiohttp | Async, connection pooling |
 | Transaction | Unit of Work | Atomic cross-repository ops |
 
-## License
-
-[Your License]
-
 ## Acknowledgments
 
 - CEH Environmental Information Data Centre for the metadata API
