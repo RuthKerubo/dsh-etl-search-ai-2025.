@@ -303,7 +303,7 @@ class CachedResource(Resource):
             cached_at = datetime.fromisoformat(meta_dict["cached_at"])
             
             is_valid = True
-            if self._ttl:
+            if self._ttl is not None:
                 is_valid = datetime.utcnow() - cached_at <= self._ttl
             
             return {
