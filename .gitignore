@@ -7,7 +7,7 @@ __pycache__/
 venv/
 .env/
 .envrc
-
+.env
 # OS / IDE
 .DS_Store
 .idea/
