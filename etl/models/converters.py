@@ -40,6 +40,7 @@ from .orm import (
     ResponsibleParty,
     SupportingDocument,
 )
+from etl.models import dataset
 
 
 # =============================================================================
@@ -90,26 +91,43 @@ def domain_to_orm(
         dataset.temporal_start = domain.temporal_extent.start_date
         dataset.temporal_end = domain.temporal_extent.end_date
     
-    # Handle keywords (M:N) - find or create
-    for kw_text in domain.keywords:
-        keyword = session.query(Keyword).filter_by(keyword=kw_text).first()
-        if not keyword:
-            keyword = Keyword(keyword=kw_text)
-            session.add(keyword)
-        dataset.keywords.append(keyword)
-    
-    # Handle responsible parties (M:N with role)
-    for party_domain in domain.responsible_parties:
-        # Find or create the party
-        party = _find_or_create_party(session, party_domain)
+    # Use no_autoflush to prevent premature flush during lookups
+    with session.no_autoflush:
+        # Handle keywords (M:N) - find or create
+        for kw_text in domain.keywords:
+            keyword = session.query(Keyword).filter_by(keyword=kw_text).first()
+            if not keyword:
+                keyword = Keyword(keyword=kw_text)
+                session.add(keyword)
+            dataset.keywords.append(keyword)
         
-        # Create the association with role
-        role_value = party_domain.role.value if isinstance(party_domain.role, ResponsiblePartyRole) else party_domain.role
-        association = DatasetResponsibleParty(
-            party=party,
-            role=role_value,
-        )
-        dataset.party_associations.append(association)
+        # Handle responsible parties (M:N with role)
+        # Deduplicate: track (party_id, role) combinations to avoid unique constraint violation
+        seen_party_roles: set[tuple[str, str, str]] = set()  # (name, org, role)
+        
+        for party_domain in domain.responsible_parties:
+            role_value = party_domain.role.value if isinstance(party_domain.role, ResponsiblePartyRole) else party_domain.role
+            
+            # Create dedup key
+            dedup_key = (
+                party_domain.name or "",
+                party_domain.organisation or "",
+                role_value or "",
+            )
+            
+            if dedup_key in seen_party_roles:
+                continue  # Skip duplicate
+            seen_party_roles.add(dedup_key)
+            
+            # Find or create the party
+            party = _find_or_create_party(session, party_domain)
+            
+            # Create the association with role
+            association = DatasetResponsibleParty(
+                party=party,
+                role=role_value,
+            )
+            dataset.party_associations.append(association)
     
     # Handle distributions (1:N)
     for dist_domain in domain.distributions:
@@ -156,7 +174,6 @@ def domain_to_orm(
     
     return dataset
 
-
 def _find_or_create_party(
     session: Session,
     party_domain: DomainResponsibleParty,
@@ -165,7 +182,15 @@ def _find_or_create_party(
     Find existing party or create new one.
     
     Matches on name + organisation combination.
+    Uses merge to handle duplicates gracefully.
     """
+    # First check in session's identity map (already loaded objects)
+    for obj in session.new:
+        if isinstance(obj, ResponsibleParty):
+            if obj.name == party_domain.name and obj.organisation == party_domain.organisation:
+                return obj
+    
+    # Then check database
     party = session.query(ResponsibleParty).filter_by(
         name=party_domain.name,
         organisation=party_domain.organisation,
@@ -181,7 +206,6 @@ def _find_or_create_party(
         session.add(party)
     
     return party
-
 
 # =============================================================================
 # ORM -> Domain Converters
@@ -368,23 +392,47 @@ def update_dataset_from_domain(
     existing.related_documents.clear()
     existing.supporting_documents.clear()
     
-    # Re-add keywords
-    for kw_text in domain.keywords:
-        keyword = session.query(Keyword).filter_by(keyword=kw_text).first()
-        if not keyword:
-            keyword = Keyword(keyword=kw_text)
-            session.add(keyword)
-        existing.keywords.append(keyword)
-    
-    # Re-add responsible parties
-    for party_domain in domain.responsible_parties:
-        party = _find_or_create_party(session, party_domain)
-        role_value = party_domain.role.value if isinstance(party_domain.role, ResponsiblePartyRole) else party_domain.role
-        association = DatasetResponsibleParty(
-            party=party,
-            role=role_value,
-        )
-        existing.party_associations.append(association)
+    # Use no_autoflush to prevent premature flush during lookups
+    with session.no_autoflush:
+        # Re-add keywords
+        for kw_text in domain.keywords:
+            # Check session's pending objects first
+            keyword = None
+            for obj in session.new:
+                if isinstance(obj, Keyword) and obj.keyword == kw_text:
+                    keyword = obj
+                    break
+            
+            if not keyword:
+                keyword = session.query(Keyword).filter_by(keyword=kw_text).first()
+            
+            if not keyword:
+                keyword = Keyword(keyword=kw_text)
+                session.add(keyword)
+            
+            dataset.keywords.append(keyword)
+        # Re-add responsible parties (with deduplication)
+        seen_party_roles: set[tuple[str, str, str]] = set()
+        
+        for party_domain in domain.responsible_parties:
+            role_value = party_domain.role.value if isinstance(party_domain.role, ResponsiblePartyRole) else party_domain.role
+            
+            dedup_key = (
+                party_domain.name or "",
+                party_domain.organisation or "",
+                role_value or "",
+            )
+            
+            if dedup_key in seen_party_roles:
+                continue
+            seen_party_roles.add(dedup_key)
+            
+            party = _find_or_create_party(session, party_domain)
+            association = DatasetResponsibleParty(
+                party=party,
+                role=role_value,
+            )
+            existing.party_associations.append(association)
     
     # Re-add distributions
     for dist_domain in domain.distributions:
