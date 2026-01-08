@@ -71,3 +71,5 @@ black>=23.0.0
 isort>=5.12.0email-validator>=2.0.0
 chromadb>=0.4.0
 cohere>=4.0.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
