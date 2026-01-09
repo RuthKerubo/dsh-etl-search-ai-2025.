@@ -76,45 +76,49 @@
   {:else if results.length > 0}
     <div class="space-y-4">
       {#each results as result, i}
-        
-          href="/datasets/{result.identifier}"
-          class="block bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-4"
+        <a
+            href="/datasets/{result.identifier}"
+            class="block bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-4"
         >
-          <div class="flex items-start justify-between">
+            <div class="flex items-start justify-between">
             <div class="flex-1">
-              <h2 class="text-lg font-semibold text-gray-800 hover:text-green-700">
+                <h2 class="text-lg font-semibold text-gray-800 hover:text-green-700">
                 {result.title}
-              </h2>
-              <p class="text-gray-600 text-sm mt-1 line-clamp-2">
+                </h2>
+
+                <p class="text-gray-600 text-sm mt-1 line-clamp-2">
                 {result.abstract}
-              </p>
-              {#if result.keywords?.length > 0}
+                </p>
+
+                {#if result.keywords?.length > 0}
                 <div class="flex flex-wrap gap-1 mt-2">
-                  {#each result.keywords.slice(0, 5) as keyword}
+                    {#each result.keywords.slice(0, 5) as keyword}
                     <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">
-                      {keyword}
+                        {keyword}
                     </span>
-                  {/each}
+                    {/each}
                 </div>
-              {/if}
-            </div>
-            <div class="ml-4 text-right">
-              <span class="text-sm font-medium text-green-600">
-                {(result.score * 100).toFixed(0)}%
-              </span>
-              <div class="text-xs text-gray-400 mt-1">
-                {#if result.from_semantic && result.from_keyword}
-                  Hybrid
-                {:else if result.from_semantic}
-                  Semantic
-                {:else}
-                  Keyword
                 {/if}
-              </div>
             </div>
-          </div>
+
+            <div class="ml-4 text-right">
+                <span class="text-sm font-medium text-green-600">
+                {(result.score * 100).toFixed(0)}%
+                </span>
+
+                <div class="text-xs text-gray-400 mt-1">
+                {#if result.from_semantic && result.from_keyword}
+                    Hybrid
+                {:else if result.from_semantic}
+                    Semantic
+                {:else}
+                    Keyword
+                {/if}
+                </div>
+            </div>
+            </div>
         </a>
-      {/each}
+        {/each}
     </div>
   {/if}
 </div>

@@ -30,7 +30,7 @@ _hybrid_search: Optional["HybridSearchService"] = None
 # Configuration
 # =============================================================================
 
-@lru_cache
+
 def get_settings() -> dict:
     """Get application settings."""
     return {

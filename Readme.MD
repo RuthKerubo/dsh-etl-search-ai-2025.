@@ -1,329 +1,228 @@
 # DSH ETL Search AI
 
-Dataset search and discovery platform with semantic and conversational capabilities. Extracts metadata from the CEH Environmental Information Data Centre, stores it in SQLite, generates vector embeddings, and provides hybrid search.
+A semantic search application for environmental datasets from the UK Centre for Ecology & Hydrology (UKCEH).
+
+## Features
+
+- **ETL Pipeline**: Fetches and parses 200+ environmental datasets from CEH catalogue
+- **Hybrid Search**: Combines semantic (AI embeddings) + keyword search
+- **FastAPI Backend**: RESTful API with automatic fallback
+- **SvelteKit Frontend**: Modern, fast, reactive UI
+- **ChromaDB**: Vector store for semantic search
+- **Cohere Embeddings**: AI-powered text understanding
+
+## Architecture
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SvelteKit Frontend                        │
+│                    http://localhost:5173                     │
+│                                                              │
+│  - Search page with instant results                          │
+│  - Dataset browser with pagination                           │
+│  - Dataset detail view                                       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      FastAPI Backend                         │
+│                    http://localhost:8000                     │
+│                                                              │
+│  GET /health          - Service status                       │
+│  GET /api/datasets    - List datasets (paginated)            │
+│  GET /api/datasets/id - Single dataset                       │
+│  GET /api/search?q=   - Hybrid search                        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+      ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+      │   SQLite    │ │  ChromaDB   │ │  Cohere API │
+      │  (metadata) │ │ (vectors)   │ │ (embeddings)│
+      └─────────────┘ └─────────────┘ └─────────────┘
+```
 
 ## Quick Start
 
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+ (for frontend)
+- Cohere API key (free at https://cohere.com)
+
+### Installation
 ```bash
-# Install dependencies
+# Clone repository
+git clone https://github.com/RuthKerubo/dsh-etl-search-ai-2025.git
+cd dsh-etl-search-ai-2025
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install Python dependencies
 pip install -r requirements.txt
 
-# Set up environment
+# Install frontend dependencies
+cd frontend
+npm install
+cd ..
+
+# Configure environment
 cp .env.example .env
-# Edit .env with your COHERE_API_KEY
+# Edit .env and add your COHERE_API_KEY
+```
 
-# Run ETL pipeline
-python -m etl.cli run --ids metadata-file-identifiers.txt
+### Run ETL Pipeline
+```bash
+# Initialize database
+python -m etl.cli init
 
-# Generate embeddings
+# Fetch and store datasets (3-5 minutes)
+python -m etl.cli run
+
+# Generate embeddings (requires COHERE_API_KEY)
 python -m etl.cli embed
 
-# Start API server
-python -m api.main
+# Check status
+python -m etl.cli status
 ```
 
-## Architecture
+### Start Development Servers
+```bash
+# Terminal 1: Backend
+uvicorn api.main:app --reload
 
+# Terminal 2: Frontend
+cd frontend
+npm run dev
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Frontend (Svelte)                             │
-│                         Search & Discovery UI                           │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                            API Layer                                    │
-│                    FastAPI / REST Endpoints                             │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-            ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-            │   Hybrid    │ │   Vector    │ │ Repository  │
-            │   Search    │ │   Store     │ │   Layer     │
-            │   (RRF)     │ │  (ChromaDB) │ │  (SQLAlchemy)│
-            └─────────────┘ └─────────────┘ └─────────────┘
-                    │               │               │
-                    └───────────────┼───────────────┘
-                                    ▼
-                    ┌───────────────┴───────────────┐
-                    ▼                               ▼
-            ┌─────────────┐                 ┌─────────────┐
-            │   SQLite    │                 │  ChromaDB   │
-            │  (metadata) │                 │  (vectors)  │
-            └─────────────┘                 └─────────────┘
+
+- **Backend**: http://localhost:8000/docs
+- **Frontend**: http://localhost:5173
+
+### Using Docker (Recommended)
+```bash
+# Start everything
+docker-compose up
+
+# Or run in background
+docker-compose up -d
+```
+
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000
+
+## API Usage
+
+### Health Check
+```bash
+curl http://localhost:8000/health
+```
+
+### Search Datasets
+```bash
+# Hybrid search (semantic + keyword)
+curl "http://localhost:8000/api/search?q=climate%20change"
+
+# Force keyword-only
+curl "http://localhost:8000/api/search?q=river&mode=keyword"
+```
+
+### List Datasets
+```bash
+curl "http://localhost:8000/api/datasets?page=1&page_size=10"
+```
+
+### Get Single Dataset
+```bash
+curl "http://localhost:8000/api/datasets/{identifier}"
 ```
 
 ## Project Structure
-
 ```
-etl/
-├── client/                 # CEH Catalogue client
-│   ├── ceh_client.py       # Async HTTP client with rate limiting
-│   └── __init__.py
-│
-├── models/                 # Domain & ORM models
-│   ├── dataset.py          # DatasetMetadata (Pydantic)
-│   ├── user.py             # User, SearchHistory (Pydantic)
-│   ├── orm.py              # SQLAlchemy ORM models
-│   └── converters.py       # Domain ↔ ORM conversion
-│
-├── parsers/                # Metadata parsers
-│   ├── base.py             # MetadataParser ABC, ParserRegistry
-│   ├── json_parser.py      # CEH JSON format
-│   └── iso19115.py         # ISO 19115 XML (UK GEMINI)
-│
-├── resources/              # Resource abstraction layer
-│   ├── base.py             # Resource ABC, FetchResult
-│   ├── http.py             # HttpResource, CEHCatalogueResource
-│   ├── local.py            # LocalFileResource, ZipEntryResource
-│   ├── cached.py           # CachedResource decorator
-│   └── factory.py          # ResourceFactory
-│
-├── repository/             # Data access layer
-│   ├── base.py             # Repository interfaces
-│   ├── session.py          # SessionFactory, UnitOfWork
-│   ├── dataset_repository.py
-│   ├── user_repository.py
-│   └── search_history_repository.py
-│
-├── embeddings/             # Vector embeddings
-│   ├── base.py             # EmbeddingService ABC
-│   ├── cohere_service.py   # Cohere API implementation
-│   └── vector_store.py     # ChromaDB storage & search
-│
-├── search/                 # Search services
-│   └── hybrid.py           # Hybrid search with RRF
-│
-├── pipeline/               # ETL orchestration
-│   └── etl_pipeline.py     # ETLPipeline, ResumableETLPipeline
-│
-└── config.py               # Application settings
+dsh-etl-search-ai-2025/
+├── api/                    # FastAPI application
+│   ├── main.py             # App entry point
+│   ├── dependencies.py     # Dependency injection
+│   ├── routers/            # API routes
+│   └── schemas/            # Pydantic models
+├── etl/                    # ETL pipeline
+│   ├── cli.py              # Command-line interface
+│   ├── client/             # CEH API client
+│   ├── embeddings/         # Cohere + ChromaDB
+│   ├── models/             # Domain models
+│   ├── parsers/            # JSON/XML parsers
+│   ├── pipeline/           # ETL orchestration
+│   ├── repository/         # Database access
+│   └── search/             # Hybrid search
+├── frontend/               # SvelteKit application
+│   ├── src/
+│   │   ├── routes/         # Pages
+│   │   ├── lib/            # Components & utilities
+│   │   └── app.html        # HTML template
+│   ├── package.json
+│   └── svelte.config.js
+├── data/                   # Data storage
+│   ├── metadata.db         # SQLite database
+│   ├── chroma/             # Vector store
+│   └── cache/              # API response cache
+├── tests/                  # Test suite
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
 ```
 
-## Components
+## CLI Commands
 
-### 1. ETL Pipeline
-
-Fetches metadata from CEH Catalogue, parses it, and stores in SQLite.
-
-```python
-from etl.pipeline import ETLPipeline, create_console_progress
-from etl.client import CEHCatalogueClient
-from etl.parsers import create_default_registry
-from etl.repository import SessionFactory, DatabaseConfig
-
-# Setup
-session_factory = SessionFactory(DatabaseConfig("data/metadata.db"))
-session_factory.init_db()
-
-pipeline = ETLPipeline(
-    client=CEHCatalogueClient(cache_dir="./data/cache"),
-    parser_registry=create_default_registry(),
-    session_factory=session_factory,
-)
-
-# Run
-result = await pipeline.run(dataset_ids, progress_callback=create_console_progress())
-print(result.summary())
-```
-
-**Features:**
-- Async fetching with rate limiting (3 concurrent, 0.3s delay)
-- Batch commits every 20 datasets
-- Checkpoint support for resumable runs
-- JSON + XML format support
-
-### 2. Repository Layer
-
-Unit of Work pattern for atomic database operations.
-
-```python
-from etl.repository import SessionFactory, DatabaseConfig, UnitOfWork
-
-factory = SessionFactory(DatabaseConfig("data/metadata.db"))
-
-# Atomic operations across repositories
-with UnitOfWork(factory) as uow:
-    uow.datasets.save(dataset)
-    uow.users.save(user)
-    uow.search_history.record_search("query", result_count=10)
-    uow.commit()
-
-# Simple reads
-repo = DatasetRepository(factory)
-dataset = repo.get("dataset-uuid")
-results = repo.search("climate")
-```
-
-### 3. Embedding Service
-
-Generates vector embeddings using Cohere API, stores in ChromaDB.
-
-```python
-from etl.embeddings import CohereEmbeddingService, VectorStore
-
-embedding_service = CohereEmbeddingService(api_key=os.environ["COHERE_API_KEY"])
-store = VectorStore(
-    embedding_service=embedding_service,
-    persist_path="./data/chroma",
-)
-
-# Index datasets
-datasets = repository.get_all()
-result = await store.add_datasets(datasets)
-
-# Search
-results = await store.search("drought conditions UK", limit=10)
-```
-
-**Configuration:**
-- Model: `embed-english-v3.0` (1024 dimensions)
-- Batch size: 96 (Cohere max)
-- Storage: ChromaDB with cosine similarity
-
-### 4. Hybrid Search
-
-Combines semantic and keyword search using Reciprocal Rank Fusion.
-
-```python
-from etl.search import HybridSearchService
-
-service = HybridSearchService(
-    vector_store=store,
-    repository=repository,
-)
-
-# Auto-detects query type and applies optimal strategy
-response = await service.search("drought data UK")
-
-for result in response.results:
-    print(f"{result.hybrid_score:.4f} | {result.title}")
-```
-
-**Query Types (auto-detected):**
-| Query | Type | Strategy |
-|-------|------|----------|
-| `f710bed1-e564-...` | EXACT_ID | Direct DB lookup |
-| `"UK Drought Inventory"` | EXACT_TITLE | Keyword + boost |
-| `rivers` | SHORT | Keyword weighted 1.5x |
-| `climate change impacts` | NORMAL | 50/50 hybrid |
-
-## Data Flow
-
-```
-CEH Catalogue API
-       │
-       ▼ (fetch JSON + XML)
-┌─────────────────┐
-│ CEHCatalogueClient │
-└─────────────────┘
-       │
-       ▼ (parse)
-┌─────────────────┐
-│  ParserRegistry │
-│  - CEHJSONParser│
-│  - ISO19115Parser│
-└─────────────────┘
-       │
-       ▼ (domain model)
-┌─────────────────┐
-│ DatasetMetadata │
-└─────────────────┘
-       │
-       ├──────────────────────────────┐
-       ▼                              ▼
-┌─────────────────┐           ┌─────────────────┐
-│ DatasetRepository│           │   VectorStore   │
-│   (SQLAlchemy)  │           │   (ChromaDB)    │
-└─────────────────┘           └─────────────────┘
-       │                              │
-       ▼                              ▼
-   SQLite DB                    ChromaDB Store
-  (structured)                   (embeddings)
-       │                              │
-       └──────────────┬───────────────┘
-                      ▼
-              ┌─────────────────┐
-              │ HybridSearchService │
-              │      (RRF)      │
-              └─────────────────┘
-                      │
-                      ▼
-                 Search Results
-```
+| Command | Description |
+|---------|-------------|
+| `python -m etl.cli init` | Create database tables |
+| `python -m etl.cli run` | Fetch and store datasets |
+| `python -m etl.cli embed` | Generate embeddings |
+| `python -m etl.cli status` | Show current status |
+| `python -m etl.cli search "query"` | Test search |
 
 ## Environment Variables
 
-```env
-# Required
-COHERE_API_KEY=your-cohere-api-key
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_PATH` | SQLite database path | `data/metadata.db` |
+| `CHROMA_PATH` | ChromaDB storage path | `data/chroma` |
+| `COHERE_API_KEY` | Cohere API key | Required for embeddings |
+| `CACHE_DIR` | API cache directory | `data/cache` |
+| `PUBLIC_API_URL` | Backend URL for frontend | `http://localhost:8000` |
 
-# Optional
-DATABASE_PATH=data/metadata.db
-CHROMA_PATH=data/chroma
-CACHE_DIR=data/cache
-LOG_LEVEL=INFO
-```
+## Search Modes
 
-## Database Schema
+The search endpoint automatically selects the best mode:
 
-```sql
--- Core tables
-datasets            -- Dataset metadata (title, abstract, etc.)
-keywords            -- Unique keywords
-dataset_keywords    -- M:N relationship
-responsible_parties -- Organisations, contacts
-online_resources    -- Download links, access URLs
+- **Hybrid** (default): Combines semantic + keyword using Reciprocal Rank Fusion
+- **Keyword-only**: Falls back when embeddings unavailable or rate-limited
+- **Semantic-only**: Force with `?mode=semantic`
 
--- User tables
-users               -- User accounts
-search_history      -- Search analytics
-user_favourites     -- Bookmarked datasets
-```
+## Tech Stack
 
-## API Endpoints (Planned)
+### Backend
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- SQLite
+- ChromaDB
+- Cohere API
 
-```
-GET  /api/datasets              # List datasets (paginated)
-GET  /api/datasets/{id}         # Get single dataset
-GET  /api/search?q=...          # Hybrid search
-POST /api/search                # Advanced search with filters
+### Frontend
+- SvelteKit
+- TailwindCSS
+- TypeScript
 
-GET  /api/users/me              # Current user
-POST /api/users/favourites      # Add favourite
-GET  /api/users/history         # Search history
-```
+### DevOps
+- Docker
+- Docker Compose
 
-## Development
+## License
 
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+MIT
 
-# Run tests
-pytest
+## Author
 
-# Type checking
-mypy etl/
-
-# Linting
-ruff check etl/
-```
-
-## Key Design Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Domain models | Pydantic | Validation, serialization, IDE support |
-| ORM | SQLAlchemy 2.0 | Type hints, relationship mapping |
-| Vector store | ChromaDB | Simple, persistent, built-in search |
-| Embeddings | Cohere | Good quality, free tier, fast |
-| Search merge | RRF | No score normalization needed |
-| HTTP client | aiohttp | Async, connection pooling |
-| Transaction | Unit of Work | Atomic cross-repository ops |
-
-## Acknowledgments
-
-- CEH Environmental Information Data Centre for the metadata API
-- Cohere for the embedding API
+Ruth Kerubo - RSE Coding Task 2025

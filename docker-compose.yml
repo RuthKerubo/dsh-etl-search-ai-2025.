@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_PATH=data/metadata.db
+      - CHROMA_PATH=data/chroma
+      - COHERE_API_KEY=${COHERE_API_KEY}
+    volumes:
+      - ./data:/app/data

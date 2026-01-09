@@ -1,34 +1,29 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Virtual environment
 venv/
-env/
-*.egg-info/
+.venv/
+
+# Cache
+__pycache__/
+*.pyc
 .pytest_cache/
+.svelte-kit/
+node_modules/
 
 # IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project specific
-data/cache/*
-data/*.db
-.env
-*.log
 
 # Git
 .git/
 .gitignore
 
-# Documentation
-docs/
-*.md
+# Environment
+.env
+.env.local
+
+# Misc
+*.log
+.DS_Store
+
+# Keep data for volume mounting
+# data/
