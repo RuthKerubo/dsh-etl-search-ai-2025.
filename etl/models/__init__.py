@@ -107,7 +107,7 @@ __all__ = [
     "update_dataset_from_domain",
     # ... Users ...
     "User",
-    "UserCreate", 
+    "UserCreate",
     "UserUpdate",
     "UserPreferences",
     "SearchHistoryEntry",

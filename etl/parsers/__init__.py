@@ -9,7 +9,7 @@ The registry enables auto-detection and selection of parsers.
 
 Example:
     from etl.parsers import ParserRegistry
-    
+
     registry = ParserRegistry()
     metadata = registry.parse(content, content_type="application/json")
 """

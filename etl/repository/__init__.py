@@ -39,16 +39,16 @@ Usage Examples:
         DatasetRepository,
         UnitOfWork,
     )
-    
+
     config = DatabaseConfig(database_path="data/metadata.db")
     session_factory = SessionFactory(config)
     session_factory.init_db()
-    
+
     # Simple reads (standalone mode)
     repo = DatasetRepository(session_factory)
     dataset = repo.get("abc-123")
     results = repo.search("climate")
-    
+
     # Writes with transaction (UoW mode)
     with UnitOfWork(session_factory) as uow:
         uow.datasets.save(dataset1)
@@ -84,14 +84,14 @@ __all__ = [
     "BulkRepository",
     "BulkOperationResult",
     "PagedResult",
-    
+
     # Session management
     "DatabaseConfig",
     "SessionFactory",
     "UnitOfWork",
     "get_session_factory",
     "reset_session_factory",
-    
+
     # Concrete repositories
     "DatasetRepository",
     "UserRepository",

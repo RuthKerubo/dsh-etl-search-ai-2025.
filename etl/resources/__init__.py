@@ -14,16 +14,16 @@ Design Patterns:
 Example:
     from etl.resources import ResourceFactory
     from datetime import timedelta
-    
+
     factory = ResourceFactory(
         cache_dir="./data/cache",
         cache_ttl=timedelta(hours=24),
     )
-    
+
     # Fetch CEH metadata
     resource = factory.ceh_metadata("f710bed1-...", format="json")
     result = await resource.fetch()
-    
+
     if result.success:
         data = json.loads(result.text)
 """

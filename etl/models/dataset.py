@@ -28,7 +28,7 @@ from pydantic import (
 class ResponsiblePartyRole(str, Enum):
     """
     Roles for responsible parties as defined in ISO 19115.
-    
+
     Reference: ISO 19115-1:2014 B.3.2 CI_RoleCode
     """
     RESOURCE_PROVIDER = "resourceProvider"
@@ -67,7 +67,7 @@ class AccessType(str, Enum):
 class RelationshipType(str, Enum):
     """
     Types of relationships between documents/datasets.
-    
+
     Reference: ISO 19115-1:2014 B.3.1 DS_AssociationTypeCode
     """
     PARENT = "parent"
@@ -90,7 +90,7 @@ class RelationshipType(str, Enum):
 class TopicCategory(str, Enum):
     """
     High-level topic categories as defined in ISO 19115.
-    
+
     Reference: ISO 19115-1:2014 B.3.21 MD_TopicCategoryCode
     """
     FARMING = "farming"
@@ -139,27 +139,27 @@ Latitude = Annotated[
 class BoundingBox(BaseModel):
     """
     Geographic bounding box in WGS84 coordinates.
-    
+
     Represents the spatial extent of a dataset as a rectangle
     defined by its corner coordinates.
-    
+
     Attributes:
         west: Western-most longitude (-180 to 180)
         east: Eastern-most longitude (-180 to 180)
         south: Southern-most latitude (-90 to 90)
         north: Northern-most latitude (-90 to 90)
     """
-    
+
     model_config = ConfigDict(
         frozen=False,  # Allow mutation if needed
         validate_assignment=True,
     )
-    
+
     west: Longitude
     east: Longitude
     south: Latitude
     north: Latitude
-    
+
     @model_validator(mode="after")
     def validate_bounds(self) -> "BoundingBox":
         """Validate that north is greater than or equal to south."""
@@ -168,7 +168,7 @@ class BoundingBox(BaseModel):
                 f"North ({self.north}) must be >= south ({self.south})"
             )
         return self
-    
+
     @property
     def is_valid(self) -> bool:
         """Check if bounding box has valid, non-zero extent."""
@@ -177,7 +177,7 @@ class BoundingBox(BaseModel):
             abs(self.east - self.west) > 0 or
             abs(self.north - self.south) > 0
         )
-    
+
     @property
     def center(self) -> tuple[float, float]:
         """Calculate center point (longitude, latitude)."""
@@ -188,7 +188,7 @@ class BoundingBox(BaseModel):
                 center_lon -= 360
         else:
             center_lon = (self.west + self.east) / 2
-        
+
         center_lat = (self.south + self.north) / 2
         return (center_lon, center_lat)
 
@@ -196,40 +196,40 @@ class BoundingBox(BaseModel):
 class TemporalExtent(BaseModel):
     """
     Temporal extent of a dataset.
-    
+
     Represents the time period covered by the data. Either or both
     dates can be None to represent open-ended ranges.
-    
+
     Examples:
         - Historical data: start_date=1990-01-01, end_date=2000-12-31
         - Ongoing collection: start_date=2020-01-01, end_date=None
         - Unknown start: start_date=None, end_date=2023-12-31
-    
+
     Attributes:
         start_date: Beginning of the temporal extent (optional)
         end_date: End of the temporal extent (optional)
     """
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
     )
-    
+
     start_date: date | None = None
     end_date: date | None = None
-    
+
     @model_validator(mode="after")
     def validate_date_order(self) -> "TemporalExtent":
         """Validate that end_date is not before start_date."""
         if (
-            self.start_date is not None and 
-            self.end_date is not None and 
+            self.start_date is not None and
+            self.end_date is not None and
             self.end_date < self.start_date
         ):
             raise ValueError(
                 f"end_date ({self.end_date}) must be >= start_date ({self.start_date})"
             )
         return self
-    
+
     @field_validator("start_date", "end_date", mode="before")
     @classmethod
     def parse_date(cls, value):
@@ -249,12 +249,12 @@ class TemporalExtent(BaseModel):
                     continue
             raise ValueError(f"Cannot parse date: {value}")
         return value
-    
+
     @property
     def is_open_ended(self) -> bool:
         """Check if the temporal extent is open-ended."""
         return self.start_date is None or self.end_date is None
-    
+
     @property
     def is_ongoing(self) -> bool:
         """Check if the dataset is still being updated (no end date)."""
@@ -264,10 +264,10 @@ class TemporalExtent(BaseModel):
 class ResponsibleParty(BaseModel):
     """
     Person or organisation responsible for the dataset.
-    
+
     Represents a party with a specific role in relation to the dataset,
     as defined in ISO 19115 CI_Responsibility.
-    
+
     Attributes:
         name: Name of the individual
         organisation: Name of the organisation
@@ -275,24 +275,24 @@ class ResponsibleParty(BaseModel):
         email: Contact email address
         orcid: ORCID identifier for individuals
     """
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
     )
-    
+
     name: str | None = None
     organisation: str | None = None
     role: ResponsiblePartyRole = ResponsiblePartyRole.OTHER
     email: str | None = None
     orcid: str | None = None
-    
+
     @model_validator(mode="after")
     def validate_has_identity(self) -> "ResponsibleParty":
         """Ensure at least name or organisation is provided."""
         if not self.name and not self.organisation:
             raise ValueError("Either name or organisation must be provided")
         return self
-    
+
     @field_validator("role", mode="before")
     @classmethod
     def parse_role(cls, value):
@@ -315,7 +315,7 @@ class ResponsibleParty(BaseModel):
             # Fallback to OTHER
             return ResponsiblePartyRole.OTHER
         return value
-    
+
     @field_validator("email", mode="before")
     @classmethod
     def validate_email(cls, value):
@@ -325,7 +325,7 @@ class ResponsibleParty(BaseModel):
         if isinstance(value, str) and "@" not in value:
             return None  # Invalid email, treat as missing
         return value
-    
+
     @property
     def display_name(self) -> str:
         """Get a display name for the party."""
@@ -337,10 +337,10 @@ class ResponsibleParty(BaseModel):
 class DistributionInfo(BaseModel):
     """
     Information about how to access/download the dataset.
-    
+
     Represents a distribution option for the dataset, including
     the access URL, format, and access method.
-    
+
     Attributes:
         url: URL for accessing the data
         name: Display name for this distribution
@@ -349,18 +349,18 @@ class DistributionInfo(BaseModel):
         size_bytes: Size in bytes (if known)
         description: Additional description
     """
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
     )
-    
+
     url: str
     name: str | None = None
     format: str | None = None
     access_type: AccessType = AccessType.OTHER
     size_bytes: int | None = Field(default=None, ge=0)
     description: str | None = None
-    
+
     @field_validator("access_type", mode="before")
     @classmethod
     def parse_access_type(cls, value):
@@ -380,7 +380,7 @@ class DistributionInfo(BaseModel):
                         return at
                 return AccessType.OTHER
         return value
-    
+
     @field_validator("url", mode="before")
     @classmethod
     def validate_url(cls, value):
@@ -393,27 +393,27 @@ class DistributionInfo(BaseModel):
 class RelatedDocument(BaseModel):
     """
     Reference to a related document or dataset.
-    
+
     Represents a relationship between this dataset and another
     document, such as a parent dataset, supporting document,
     or related publication.
-    
+
     Attributes:
         identifier: Identifier of the related document (UUID or URL)
         relationship_type: Type of relationship
         title: Title of the related document (if known)
         url: URL to access the related document
     """
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
     )
-    
+
     identifier: str
     relationship_type: RelationshipType = RelationshipType.OTHER
     title: str | None = None
     url: str | None = None
-    
+
     @field_validator("relationship_type", mode="before")
     @classmethod
     def parse_relationship_type(cls, value):
@@ -438,10 +438,10 @@ class RelatedDocument(BaseModel):
 class SupportingDocument(BaseModel):
     """
     Supporting document associated with a dataset.
-    
+
     Represents additional documentation such as methodology reports,
     data dictionaries, or publications.
-    
+
     Attributes:
         filename: Name of the file
         url: URL to download the document
@@ -450,11 +450,11 @@ class SupportingDocument(BaseModel):
         description: Description of the document
         extracted_text: Text extracted from document (for RAG)
     """
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
     )
-    
+
     filename: str
     url: str | None = None
     content_type: str | None = None
@@ -470,14 +470,14 @@ class SupportingDocument(BaseModel):
 class DatasetMetadata(BaseModel):
     """
     Unified dataset metadata model.
-    
+
     This is the canonical representation of dataset metadata that all
     parsers produce, regardless of the source format (ISO 19115 XML,
     CEH JSON, JSON-LD, or RDF).
-    
+
     Based on ISO 19115-1:2014 Geographic Metadata Standard with
     adaptations for the CEH Environmental Data Centre.
-    
+
     Attributes:
         identifier: Unique identifier (UUID) for the dataset
         title: Title of the dataset
@@ -494,12 +494,12 @@ class DatasetMetadata(BaseModel):
         source_format: Original metadata format
         raw_document: Original document content (for reference)
     """
-    
+
     model_config = ConfigDict(
         validate_assignment=True,
         use_enum_values=True,  # Serialize enums as their values
     )
-    
+
     # -------------------------------------------------------------------------
     # Required Fields
     # -------------------------------------------------------------------------
@@ -513,7 +513,7 @@ class DatasetMetadata(BaseModel):
         min_length=1,
         description="Title of the dataset"
     )
-    
+
     # -------------------------------------------------------------------------
     # Optional Text Fields
     # -------------------------------------------------------------------------
@@ -525,7 +525,7 @@ class DatasetMetadata(BaseModel):
         default=None,
         description="Information about data provenance and processing"
     )
-    
+
     # -------------------------------------------------------------------------
     # Classification
     # -------------------------------------------------------------------------
@@ -537,7 +537,7 @@ class DatasetMetadata(BaseModel):
         default_factory=list,
         description="ISO 19115 topic categories"
     )
-    
+
     # -------------------------------------------------------------------------
     # Spatial and Temporal Extent
     # -------------------------------------------------------------------------
@@ -549,7 +549,7 @@ class DatasetMetadata(BaseModel):
         default=None,
         description="Time period covered by the dataset"
     )
-    
+
     # -------------------------------------------------------------------------
     # Parties and Access
     # -------------------------------------------------------------------------
@@ -561,7 +561,7 @@ class DatasetMetadata(BaseModel):
         default_factory=list,
         description="Access/download options"
     )
-    
+
     # -------------------------------------------------------------------------
     # Relationships
     # -------------------------------------------------------------------------
@@ -573,7 +573,7 @@ class DatasetMetadata(BaseModel):
         default_factory=list,
         description="Associated documentation files"
     )
-    
+
     # -------------------------------------------------------------------------
     # Metadata about the Metadata
     # -------------------------------------------------------------------------
@@ -585,11 +585,11 @@ class DatasetMetadata(BaseModel):
         default=None,
         description="Original document content for reference",
     )
-        
+
     # -------------------------------------------------------------------------
     # Validators
     # -------------------------------------------------------------------------
-    
+
     @field_validator("keywords", mode="before")
     @classmethod
     def clean_keywords(cls, value):
@@ -607,7 +607,7 @@ class DatasetMetadata(BaseModel):
                 seen.add(kw)
                 cleaned.append(kw)
         return cleaned
-    
+
     @field_validator("topic_categories", mode="before")
     @classmethod
     def parse_topic_categories(cls, value):
@@ -616,7 +616,7 @@ class DatasetMetadata(BaseModel):
             return []
         if isinstance(value, str):
             value = [value]
-        
+
         categories = []
         for cat in value:
             if isinstance(cat, TopicCategory):
@@ -632,29 +632,29 @@ class DatasetMetadata(BaseModel):
                             categories.append(tc)
                             break
         return categories
-    
+
     # -------------------------------------------------------------------------
     # Utility Methods
     # -------------------------------------------------------------------------
-    
+
     @property
     def has_spatial_extent(self) -> bool:
         """Check if dataset has spatial extent defined."""
         return self.bounding_box is not None
-    
+
     @property
     def has_temporal_extent(self) -> bool:
         """Check if dataset has temporal extent defined."""
         return self.temporal_extent is not None
-    
+
     @property
     def has_downloads(self) -> bool:
         """Check if dataset has download options."""
         return any(
-            d.access_type == AccessType.DOWNLOAD 
+            d.access_type == AccessType.DOWNLOAD
             for d in self.distributions
         )
-    
+
     @property
     def publisher(self) -> ResponsibleParty | None:
         """Get the publisher if one exists."""
@@ -662,12 +662,12 @@ class DatasetMetadata(BaseModel):
             if party.role == ResponsiblePartyRole.PUBLISHER:
                 return party
         return None
-    
+
     @property
     def search_text(self) -> str:
         """
         Combine title, abstract, and keywords for embedding.
-        
+
         This is the text that will be embedded for semantic search.
         """
         parts = [self.title]
@@ -676,28 +676,28 @@ class DatasetMetadata(BaseModel):
         if self.keywords:
             parts.append(" ".join(self.keywords))
         return " ".join(parts)
-    
+
     def to_dict(self, include_raw: bool = False) -> dict:
         """
         Convert to dictionary for database storage.
-        
+
         Args:
             include_raw: Whether to include raw_document field
-            
+
         Returns:
             Dictionary representation
         """
         exclude_fields = {"raw_document"} if not include_raw else None
         return self.model_dump(mode="json", exclude=exclude_fields)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> "DatasetMetadata":
         """
         Create instance from dictionary.
-        
+
         Args:
             data: Dictionary representation
-            
+
         Returns:
             DatasetMetadata instance
         """
@@ -715,14 +715,14 @@ def create_minimal_dataset(
 ) -> DatasetMetadata:
     """
     Create a minimal dataset with only required fields.
-    
+
     Useful for testing or creating placeholder records.
-    
+
     Args:
         identifier: Dataset UUID
         title: Dataset title
         abstract: Optional abstract
-        
+
     Returns:
         DatasetMetadata instance
     """

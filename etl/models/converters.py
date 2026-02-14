@@ -54,18 +54,18 @@ def domain_to_orm(
 ) -> Dataset:
     """
     Convert a Pydantic DatasetMetadata to SQLAlchemy Dataset.
-    
+
     Handles:
     - Creating or finding existing keywords (M:N)
     - Creating or finding existing responsible parties (M:N)
     - Creating distribution, related doc, supporting doc records (1:N)
     - Storing raw document if provided
-    
+
     Args:
         domain: Pydantic domain model
         session: SQLAlchemy session for lookups
         include_raw: Whether to store raw document
-        
+
     Returns:
         SQLAlchemy Dataset instance (not yet committed)
     """
@@ -75,22 +75,22 @@ def domain_to_orm(
         title=domain.title,
         abstract=domain.abstract,
         lineage=domain.lineage,
-        topic_categories=json.dumps([tc.value if isinstance(tc, TopicCategory) else tc 
+        topic_categories=json.dumps([tc.value if isinstance(tc, TopicCategory) else tc
                                      for tc in domain.topic_categories]) if domain.topic_categories else None,
     )
-    
+
     # Embed bounding box
     if domain.bounding_box:
         dataset.bbox_west = domain.bounding_box.west
         dataset.bbox_east = domain.bounding_box.east
         dataset.bbox_south = domain.bounding_box.south
         dataset.bbox_north = domain.bounding_box.north
-    
+
     # Embed temporal extent
     if domain.temporal_extent:
         dataset.temporal_start = domain.temporal_extent.start_date
         dataset.temporal_end = domain.temporal_extent.end_date
-    
+
     # Use no_autoflush to prevent premature flush during lookups
     with session.no_autoflush:
         # Handle keywords (M:N) - find or create
@@ -100,35 +100,35 @@ def domain_to_orm(
                 keyword = Keyword(keyword=kw_text)
                 session.add(keyword)
             dataset.keywords.append(keyword)
-        
+
         # Handle responsible parties (M:N with role)
         # Deduplicate: track (party_id, role) combinations to avoid unique constraint violation
         seen_party_roles: set[tuple[str, str, str]] = set()  # (name, org, role)
-        
+
         for party_domain in domain.responsible_parties:
             role_value = party_domain.role.value if isinstance(party_domain.role, ResponsiblePartyRole) else party_domain.role
-            
+
             # Create dedup key
             dedup_key = (
                 party_domain.name or "",
                 party_domain.organisation or "",
                 role_value or "",
             )
-            
+
             if dedup_key in seen_party_roles:
                 continue  # Skip duplicate
             seen_party_roles.add(dedup_key)
-            
+
             # Find or create the party
             party = _find_or_create_party(session, party_domain)
-            
+
             # Create the association with role
             association = DatasetResponsibleParty(
                 party=party,
                 role=role_value,
             )
             dataset.party_associations.append(association)
-    
+
     # Handle distributions (1:N)
     for dist_domain in domain.distributions:
         distribution = Distribution(
@@ -140,7 +140,7 @@ def domain_to_orm(
             description=dist_domain.description,
         )
         dataset.distributions.append(distribution)
-    
+
     # Handle related documents (1:N)
     for rel_domain in domain.related_documents:
         rel_type = rel_domain.relationship_type.value if isinstance(rel_domain.relationship_type, RelationshipType) else rel_domain.relationship_type
@@ -151,7 +151,7 @@ def domain_to_orm(
             url=rel_domain.url,
         )
         dataset.related_documents.append(related)
-    
+
     # Handle supporting documents (1:N)
     for supp_domain in domain.supporting_documents:
         supporting = SupportingDocument(
@@ -163,7 +163,7 @@ def domain_to_orm(
             extracted_text=supp_domain.extracted_text,
         )
         dataset.supporting_documents.append(supporting)
-    
+
     # Store raw document if provided
     if include_raw and domain.raw_document and domain.source_format:
         raw_doc = RawDocument(
@@ -171,7 +171,7 @@ def domain_to_orm(
             content=domain.raw_document,
         )
         dataset.raw_documents.append(raw_doc)
-    
+
     return dataset
 
 def _find_or_create_party(
@@ -180,7 +180,7 @@ def _find_or_create_party(
 ) -> ResponsibleParty:
     """
     Find existing party or create new one.
-    
+
     Matches on name + organisation combination.
     Uses merge to handle duplicates gracefully.
     """
@@ -189,13 +189,13 @@ def _find_or_create_party(
         if isinstance(obj, ResponsibleParty):
             if obj.name == party_domain.name and obj.organisation == party_domain.organisation:
                 return obj
-    
+
     # Then check database
     party = session.query(ResponsibleParty).filter_by(
         name=party_domain.name,
         organisation=party_domain.organisation,
     ).first()
-    
+
     if not party:
         party = ResponsibleParty(
             name=party_domain.name,
@@ -204,7 +204,7 @@ def _find_or_create_party(
             orcid=party_domain.orcid,
         )
         session.add(party)
-    
+
     return party
 
 # =============================================================================
@@ -214,10 +214,10 @@ def _find_or_create_party(
 def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
     """
     Convert a SQLAlchemy Dataset to Pydantic DatasetMetadata.
-    
+
     Args:
         dataset: SQLAlchemy Dataset instance
-        
+
     Returns:
         Pydantic DatasetMetadata instance
     """
@@ -233,10 +233,10 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
                     pass  # Skip invalid categories
         except json.JSONDecodeError:
             pass
-    
+
     # Build bounding box if present
     bounding_box = None
-    if all(v is not None for v in [dataset.bbox_west, dataset.bbox_east, 
+    if all(v is not None for v in [dataset.bbox_west, dataset.bbox_east,
                                     dataset.bbox_south, dataset.bbox_north]):
         bounding_box = BoundingBox(
             west=dataset.bbox_west,
@@ -244,7 +244,7 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
             south=dataset.bbox_south,
             north=dataset.bbox_north,
         )
-    
+
     # Build temporal extent if present
     temporal_extent = None
     if dataset.temporal_start is not None or dataset.temporal_end is not None:
@@ -252,10 +252,10 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
             start_date=dataset.temporal_start,
             end_date=dataset.temporal_end,
         )
-    
+
     # Convert keywords
     keywords = [kw.keyword for kw in dataset.keywords]
-    
+
     # Convert responsible parties with roles
     responsible_parties = []
     for assoc in dataset.party_associations:
@@ -267,7 +267,7 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
             orcid=party.orcid,
             role=assoc.role,
         ))
-    
+
     # Convert distributions
     distributions = [
         DistributionInfo(
@@ -280,7 +280,7 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
         )
         for dist in dataset.distributions
     ]
-    
+
     # Convert related documents
     related_documents = [
         DomainRelatedDocument(
@@ -291,7 +291,7 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
         )
         for rel in dataset.related_documents
     ]
-    
+
     # Convert supporting documents
     supporting_documents = [
         DomainSupportingDocument(
@@ -304,7 +304,7 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
         )
         for supp in dataset.supporting_documents
     ]
-    
+
     # Get raw document if available (prefer JSON format)
     raw_document = None
     source_format = None
@@ -317,7 +317,7 @@ def orm_to_domain(dataset: Dataset) -> DatasetMetadata:
         raw_doc = dataset.raw_documents[0]
         raw_document = raw_doc.content
         source_format = raw_doc.format_type
-    
+
     return DatasetMetadata(
         identifier=dataset.identifier,
         title=dataset.title,
@@ -347,14 +347,14 @@ def update_dataset_from_domain(
 ) -> Dataset:
     """
     Update an existing Dataset record from a domain model.
-    
+
     Handles clearing and re-creating relationships.
-    
+
     Args:
         existing: Existing SQLAlchemy Dataset
         domain: Updated Pydantic domain model
         session: SQLAlchemy session
-        
+
     Returns:
         Updated Dataset instance
     """
@@ -362,9 +362,9 @@ def update_dataset_from_domain(
     existing.title = domain.title
     existing.abstract = domain.abstract
     existing.lineage = domain.lineage
-    existing.topic_categories = json.dumps([tc.value if isinstance(tc, TopicCategory) else tc 
+    existing.topic_categories = json.dumps([tc.value if isinstance(tc, TopicCategory) else tc
                                             for tc in domain.topic_categories]) if domain.topic_categories else None
-    
+
     # Update bounding box
     if domain.bounding_box:
         existing.bbox_west = domain.bounding_box.west
@@ -376,7 +376,7 @@ def update_dataset_from_domain(
         existing.bbox_east = None
         existing.bbox_south = None
         existing.bbox_north = None
-    
+
     # Update temporal extent
     if domain.temporal_extent:
         existing.temporal_start = domain.temporal_extent.start_date
@@ -384,14 +384,14 @@ def update_dataset_from_domain(
     else:
         existing.temporal_start = None
         existing.temporal_end = None
-    
+
     # Clear and rebuild relationships
     existing.keywords.clear()
     existing.party_associations.clear()
     existing.distributions.clear()
     existing.related_documents.clear()
     existing.supporting_documents.clear()
-    
+
     # Use no_autoflush to prevent premature flush during lookups
     with session.no_autoflush:
         # Re-add keywords
@@ -402,38 +402,38 @@ def update_dataset_from_domain(
                 if isinstance(obj, Keyword) and obj.keyword == kw_text:
                     keyword = obj
                     break
-            
+
             if not keyword:
                 keyword = session.query(Keyword).filter_by(keyword=kw_text).first()
-            
+
             if not keyword:
                 keyword = Keyword(keyword=kw_text)
                 session.add(keyword)
-            
+
             dataset.keywords.append(keyword)
         # Re-add responsible parties (with deduplication)
         seen_party_roles: set[tuple[str, str, str]] = set()
-        
+
         for party_domain in domain.responsible_parties:
             role_value = party_domain.role.value if isinstance(party_domain.role, ResponsiblePartyRole) else party_domain.role
-            
+
             dedup_key = (
                 party_domain.name or "",
                 party_domain.organisation or "",
                 role_value or "",
             )
-            
+
             if dedup_key in seen_party_roles:
                 continue
             seen_party_roles.add(dedup_key)
-            
+
             party = _find_or_create_party(session, party_domain)
             association = DatasetResponsibleParty(
                 party=party,
                 role=role_value,
             )
             existing.party_associations.append(association)
-    
+
     # Re-add distributions
     for dist_domain in domain.distributions:
         distribution = Distribution(
@@ -445,7 +445,7 @@ def update_dataset_from_domain(
             description=dist_domain.description,
         )
         existing.distributions.append(distribution)
-    
+
     # Re-add related documents
     for rel_domain in domain.related_documents:
         rel_type = rel_domain.relationship_type.value if isinstance(rel_domain.relationship_type, RelationshipType) else rel_domain.relationship_type
@@ -456,7 +456,7 @@ def update_dataset_from_domain(
             url=rel_domain.url,
         )
         existing.related_documents.append(related)
-    
+
     # Re-add supporting documents
     for supp_domain in domain.supporting_documents:
         supporting = SupportingDocument(
@@ -468,5 +468,5 @@ def update_dataset_from_domain(
             extracted_text=supp_domain.extracted_text,
         )
         existing.supporting_documents.append(supporting)
-    
+
     return existing

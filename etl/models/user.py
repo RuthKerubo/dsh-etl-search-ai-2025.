@@ -17,7 +17,7 @@ class UserPreferences(BaseModel):
     theme: str = "light"
     results_per_page: int = 20
     default_search_type: str = "semantic"
-    
+
     class Config:
         extra = "allow"  # Allow additional preferences
 
@@ -39,7 +39,7 @@ class UserUpdate(BaseModel):
 class User:
     """
     User domain model.
-    
+
     Represents a user account in the system.
     """
     email: str
@@ -51,7 +51,7 @@ class User:
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
     preferences: UserPreferences = field(default_factory=UserPreferences)
-    
+
     @property
     def display(self) -> str:
         """Display name or email."""
@@ -62,7 +62,7 @@ class User:
 class SearchHistoryEntry:
     """
     Search history entry.
-    
+
     Records a single search performed by a user.
     """
     query_text: str
